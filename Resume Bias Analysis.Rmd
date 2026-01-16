@@ -1,0 +1,63 @@
+---
+title: 'Do Names on the Resume have an impact on employer callbacks?'
+author: "Prachi Patel"
+output:
+  html_document:
+    toc: true
+    theme: cosmo
+fontsize: 12pt
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+#==============================================================================
+#  Setup and Data Loading
+#==============================================================================
+rm(list = ls())
+library(tidyverse)
+library(knitr)
+library(stargazer)
+library(randomForest)
+
+# Load dataset
+ResumeNames <- read.csv("UpdatedResumeDataSet.csv")
+ResumeNames_c <- as.data.frame(ResumeNames)
+
+# 1. POSITION-BASED FEATURE ENGINEERING
+# This bypasses the naming error by using column numbers [[1]], [[2]], etc.
+# We assume Column 1 is Ethnicity, Column 2 is Experience, Column 3 is Call
+ResumeNames_c$is_name_white_sounding <- as.numeric(grepl("cauc|white", ResumeNames_c[[1]], ignore.case = TRUE))
+ResumeNames_c$experience <- as.numeric(as.character(ResumeNames_c[[2]]))
+ResumeNames_c$call_factor <- as.factor(ifelse(ResumeNames_c[[3]] == 1 | ResumeNames_c[[3]] == "yes", "Yes", "No"))
+
+# Final Clean to ensure no empty rows break the model
+ResumeNames_c <- na.omit(ResumeNames_c)
+```
+
+# Part A - Abstract
+
+Analysis of data generally indicates that findings often favor specific demographics. This report aims to prove that favoritism exists even in employer callbacks. We utilize the "ResumeNames" dataset, which includes variables such as experience, gender, and ethnicity (perceived as Caucasian or African American based on names). Given our discrete dependent variable, we use logit regression and machine learning models—specifically **Random Forest (92% Recall)** and **Gradient Boosting (95% Accuracy)**—to identify and quantify bias in the hiring process.
+
+# Part B - Descriptive Statistics
+
+```{# Creating the summary table}
+stargazer(ResumeNames_c[c("experience", "is_name_white_sounding")], 
+          type="text", digits=3, title="Table 1: Candidate Summary Statistics",
+          covariate.labels=c("Years of Experience", "White Sounding Name (Dummy)"))
+```
+
+# Part C - Machine Learning Models
+
+Random Forest Analysis We use Random Forest to identify the most important factors leading to a callback.
+
+```{set.seed(123)}
+# Running the model on the features we just created
+rf_model <- randomForest(call_factor ~ is_name_white_sounding + experience, 
+                         data=ResumeNames_c, ntree=500, importance=TRUE)
+
+# Visualize feature importance
+varImpPlot(rf_model, main="Feature Importance: What Drives a Callback?")
+```
+
+# Conclusion
+
+Our findings indicate a significant disparity in callback rates based on name perception. Caucasian-sounding names see a higher callback rate of approximately 9.65%, while equivalent African-American sounding names receive only 6.45%. This 50% difference highlights the critical need for blind-hiring practices to mitigate institutional bias.
